@@ -1,0 +1,22 @@
+{
+    "name": "unstable-cacao/unix-socks",
+    "authors": [
+        {
+            "name": "Alexey Puchkov",
+            "email": "alexey.pkv@gmail.com"
+        },
+        {
+            "name": "Marina Puchkov",
+            "email": "marinashers@gmail.com"
+        }
+    ],
+    "require":
+    {
+		"php": ">=7.1"
+    },
+    "autoload": {
+		"psr-4": {
+			"UnixSocks\\": "src\\UnixSocks\\"
+		}
+	}
+}
