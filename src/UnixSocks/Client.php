@@ -25,7 +25,13 @@ class Client implements IClient
 	
 	private function readIntoInternalBuffer(int $maxLength = 1024): void
 	{
-		// TODO: Read and store in $buffer
+		$this->validateOpen();
+		$readData = socket_read($this->ioSocket, $maxLength);
+		
+		if ($readData === false)
+			throw new \Exception("Could not read data from socket");
+		
+		$this->buffer .= $readData;
 	}
 	
 	private function getFromBuffer(int $maxLength): string
