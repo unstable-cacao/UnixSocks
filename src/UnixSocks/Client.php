@@ -16,6 +16,12 @@ class Client implements IClient
 	/** @var string */
 	private $buffer = '';
 	
+	/** @var resource|null */
+	private $ioSocket;
+	
+	/** @var array */
+	private $allSockets = [];
+	
 	
 	private function readIntoInternalBuffer(int $maxLength = 1024): void
 	{
@@ -48,9 +54,17 @@ class Client implements IClient
 	
 	private function validateClosed(): void
 	{
-		if ($this->isClosed())
+		if (!$this->isClosed())
 		{
 			throw new Exceptions\ConnectionAlreadyOpenException();
+		}
+	}
+	
+	private function validateFile(): void
+	{
+		if (!$this->file)
+		{
+			throw new \Exception("File not set");
 		}
 	}
 	
@@ -77,32 +91,112 @@ class Client implements IClient
 		return $this->file ?? '';
 	}
 	
-	public function connect(?float $timeout = null): bool
+	public function tryConnect(): bool 
+	{
+		if ($this->isOpen())
+			return false;
+		
+		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
+		
+		if (!$conn)
+			return false;
+		
+		$this->validateFile();
+		
+		if (!socket_connect($conn, $this->file))
+			return false;
+		
+		$this->ioSocket = $conn;
+		$this->allSockets[] = $conn;
+		
+		return true;
+	}
+	
+	public function connect(): void
 	{
 		$this->validateClosed();
-		// TODO: Implement connect() method.
+		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
+		
+		if (!$conn) 
+			throw new \Exception("Failed to create socket");
+		
+		$this->validateFile();
+		
+		if (!socket_connect($conn, $this->file))
+			throw new \Exception("Failed to connect to socket");
+		
+		$this->ioSocket = $conn;
+		$this->allSockets[] = $conn;
 	}
 	
 	public function accept(?float $timeout = null): bool
 	{
 		$this->validateClosed();
-		// TODO: Implement accept() method.
+		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
+		
+		if (!$conn)
+			return false;
+		
+		$this->validateFile();
+		
+		if (!socket_bind($conn, $this->file))
+			return false;
+		
+		if (is_null($timeout))
+		{
+			socket_set_blocking($conn, true);
+			$this->ioSocket = socket_accept($conn);
+			$this->allSockets = [$this->ioSocket, $conn];
+			
+			return $this->isOpen();
+		}
+		else
+		{
+			$timeoutTime = time() + $timeout;
+			socket_set_blocking($conn, false);
+			
+			while (microtime(true) < $timeoutTime)
+			{
+				$client = socket_accept($conn);
+				
+				if ($client)
+				{
+					$this->ioSocket = $client;
+					$this->allSockets = [$client, $conn];
+					
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 	
 	public function close(): void
 	{
-		// TODO: Implement close() method. Do nothing if already closed
+		foreach ($this->allSockets as $socket)
+		{
+			socket_close($socket);
+		}
+		
+		if ($this->file && file_exists($this->file))
+		{
+			unlink($this->file);
+		}
+		
 		$this->buffer = '';
+		$this->allSockets = [];
+		$this->ioSocket = null;
 	}
 	
 	public function isOpen(): bool
 	{
-		// TODO: Implement isOpen() method.
+		return $this->ioSocket ? true : false;
 	}
 	
 	public function isClosed(): bool
 	{
-		// TODO: Implement isClosed() method.
+		return $this->ioSocket ? false : true;
 	}
 	
 	/**
@@ -110,7 +204,7 @@ class Client implements IClient
 	 */
 	public function getSocket()
 	{
-		// TODO: Implement getSocket() method.
+		return $this->ioSocket;
 	}
 	
 	public function hasInput(): bool

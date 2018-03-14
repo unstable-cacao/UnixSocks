@@ -7,7 +7,8 @@ interface IClient
 	public function setFile(string $path): void;
 	public function getFile(): string;
 	
-	public function connect(?float $timeout = null): bool;
+	public function tryConnect(): bool;
+	public function connect(): void;
 	public function accept(?float $timeout = null): bool;
 	public function close(): void;
 	
