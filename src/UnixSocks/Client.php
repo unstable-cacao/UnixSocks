@@ -93,9 +93,7 @@ class Client implements IClient
 	
 	public function tryConnect(): bool 
 	{
-		if ($this->isOpen())
-			return false;
-		
+		$this->validateClosed();
 		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn)
@@ -107,7 +105,7 @@ class Client implements IClient
 			return false;
 		
 		$this->ioSocket = $conn;
-		$this->allSockets[] = $conn;
+		$this->allSockets = [$conn];
 		
 		return true;
 	}
@@ -152,10 +150,10 @@ class Client implements IClient
 		}
 		else
 		{
-			$timeoutTime = time() + $timeout;
+			$timeoutTime = (float)time() + $timeout;
 			socket_set_blocking($conn, false);
 			
-			while (microtime(true) < $timeoutTime)
+			while (microtime(true) <= $timeoutTime)
 			{
 				$client = socket_accept($conn);
 				
