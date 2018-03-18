@@ -224,9 +224,50 @@ class Client implements IClient
 	public function read(int $maxLength = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();
-		// TODO: Read from buffer + if any thing remains in the incoming connection up to $maxLength.
 		
-		$result = '';
+		if ($this->buffer)
+		{
+			$result = $this->getFromBuffer($maxLength);
+		} 
+		else 
+		{
+			if (is_null($timeout))
+			{
+				socket_set_blocking($this->ioSocket, true);
+				$result = socket_read($this->ioSocket, $maxLength);
+				
+				if (strlen($result) > $maxLength)
+				{
+					$this->buffer = substr($result, $maxLength);
+					$result = substr($result, 0, $maxLength);
+				}
+			}
+			else
+			{
+				$timeoutTime = (float)time() + $timeout;
+				$isRunning = true;
+				$result = '';
+				
+				socket_set_blocking($this->ioSocket, false);
+				
+				while ($isRunning && microtime(true) <= $timeoutTime)
+				{
+					$result = socket_read($this->ioSocket, $maxLength);
+					
+					if ($result)
+					{
+						$isRunning = false;
+						
+						if (strlen($result) > $maxLength)
+						{
+							$this->buffer = substr($result, $maxLength);
+							$result = substr($result, 0, $maxLength);
+						}
+					}
+				}
+			}
+		}
+		
 		$this->plugin->read($this, $result);
 		
 		return $result;
@@ -235,9 +276,23 @@ class Client implements IClient
 	public function readBuffer(int $length = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();
-		// TODO: If buffer have the required length, read from it only.
 		
-		$result = '';
+		if (strlen($this->buffer) >= $length)
+		{
+			$result = $this->getFromBuffer($length);
+		}
+		else
+		{
+			if (is_null($timeout))
+			{
+				
+			}
+			else
+			{
+				
+			}
+		}
+		
 		$this->plugin->read($this, $result);
 		
 		return $result;
@@ -270,6 +325,7 @@ class Client implements IClient
 	public function write(string $input): void
 	{
 		$this->validateOpen();
+		socket_write($this->ioSocket, $input);
 		$this->plugin->write($this, $input);
 	}
 	
