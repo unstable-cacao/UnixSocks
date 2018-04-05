@@ -28,10 +28,10 @@ class Client implements IClient
 		$this->validateOpen();
 		$readData = socket_read($this->ioSocket, $maxLength);
 		
-		if ($readData === false)
-			throw new \Exception("Could not read data from socket");
-		
-		$this->buffer .= $readData;
+		if ($readData)
+		{
+			$this->buffer .= $readData;
+		}
 	}
 	
 	private function getFromBuffer(int $maxLength): string
@@ -72,6 +72,18 @@ class Client implements IClient
 		{
 			throw new \Exception("File not set");
 		}
+	}
+	
+	private function validateTimeout($timeout): void
+	{
+		if (!(is_null($timeout) || $timeout >= 0))
+			throw new \Exception("Timeout must be 0 or bigger, or null");
+	}
+	
+	private function validateLength($length): void
+	{
+		if (!(is_null($length) || $length > 0))
+			throw new \Exception("Length must be null or bigger than 0");
 	}
 	
 	
@@ -313,9 +325,159 @@ class Client implements IClient
 	{
 		$this->validateOpen();
 		
-		// TODO: Implement readUntil() method.
+		if (!$stop)
+			throw new \Exception("Stop parameter required");
 		
-		$result = '';
+		$this->validateTimeout($timeout);
+		$this->validateLength($maxLength);
+		
+		if (!is_array($stop))
+			$stop = [$stop];
+		
+		$result = null;
+		
+		if (is_null($timeout))
+		{
+			$isRunning = true;
+			
+			while ($isRunning)
+			{
+				$this->readIntoInternalBuffer();
+				
+				if (is_null($maxLength))
+				{
+					$firstStop = false;
+					
+					foreach ($stop as $stopString)
+					{
+						$position = strpos($this->buffer, $stopString);
+						
+						if ($position !== false)
+						{
+							$firstStop = $firstStop === false ? $position : min($firstStop, $position);
+						}
+					}
+					
+					if ($firstStop !== false)
+					{
+						$result = $this->getFromBuffer($firstStop + 1);
+						$isRunning = false;
+					}
+				}
+				else
+				{
+					if (strlen($this->buffer) >= $maxLength)
+						$isRunning = false;
+					
+					$firstStop = false;
+					
+					foreach ($stop as $stopString)
+					{
+						$position = strpos($this->buffer, $stopString);
+						
+						if ($position !== false)
+						{
+							$firstStop = $firstStop === false ? $position : min($firstStop, $position);
+						}
+					}
+					
+					if ($firstStop !== false || !$isRunning)
+					{
+						$isRunning = false;
+						
+						if ($firstStop + 1 > $maxLength)
+							$result = $this->getFromBuffer($maxLength);
+						else
+							$result = $this->getFromBuffer($firstStop + 1);
+					}
+				}
+			}
+		}
+		else if ($timeout == 0)
+		{
+			if (is_null($maxLength))
+			{
+				$isRunning = true;
+				$readFromSocket = socket_read($this->ioSocket, 1024);
+				
+				while ($isRunning)
+				{
+					if ($readFromSocket)
+					{
+						$this->buffer .= $readFromSocket;
+						$readFromSocket = socket_read($this->ioSocket, 1024);
+					}
+					else
+					{
+						$isRunning = false;
+					}
+				}
+				
+				$firstStop = false;
+				
+				foreach ($stop as $stopString)
+				{
+					$position = strpos($this->buffer, $stopString);
+					
+					if ($position !== false)
+					{
+						$firstStop = $firstStop === false ? $position : min($firstStop, $position);
+					}
+				}
+				
+				if ($firstStop !== false)
+				{
+					$result = $this->getFromBuffer($firstStop + 1);
+				}
+			}
+			else 
+			{
+				$this->readIntoInternalBuffer($maxLength);
+				$firstStop = false;
+				
+				foreach ($stop as $stopString)
+				{
+					$position = strpos($this->buffer, $stopString);
+					
+					if ($position !== false)
+					{
+						$firstStop = $firstStop === false ? $position : min($firstStop, $position);
+					}
+				}
+				
+				if ($firstStop !== false)
+				{
+					if ($firstStop + 1 > $maxLength)
+						$result = $this->getFromBuffer($maxLength);
+					else
+						$result = $this->getFromBuffer($firstStop + 1);
+				}
+			}
+		}
+		else
+		{
+			$timeoutTime = (float)time() + $timeout;
+			$isRunning = true;
+			
+			socket_set_blocking($this->ioSocket, false);
+			
+			while ($isRunning && microtime(true) <= $timeoutTime)
+			{
+				$result = socket_read($this->ioSocket, $maxLength);
+				
+				if ($result)
+				{
+					$isRunning = false;
+					
+					if (strlen($result) > $maxLength)
+					{
+						$this->buffer = substr($result, $maxLength);
+						$result = substr($result, 0, $maxLength);
+					}
+				}
+			}
+		}
+		
 		$this->plugin->read($this, $result);
 		
 		return $result;
