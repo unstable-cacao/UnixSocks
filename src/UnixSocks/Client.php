@@ -7,6 +7,9 @@ use UnixSocks\Exceptions;
 
 class Client implements IClient
 {
+	private const BIG_FLOAT = 5000000000.0;
+	
+	
 	/** @var string|null */
 	private $file = null;
 	
@@ -34,8 +37,11 @@ class Client implements IClient
 		}
 	}
 	
-	private function getFromBuffer(int $maxLength): string
+	private function getFromBuffer(int $maxLength): ?string
 	{
+		if (!$this->buffer)
+			return null;
+		
 		if (strlen($this->buffer) < $maxLength)
 		{
 			$result = $this->buffer;
@@ -74,10 +80,13 @@ class Client implements IClient
 		}
 	}
 	
-	private function validateTimeout($timeout): void
+	private function validateTimeout(&$timeout): void
 	{
 		if (!(is_null($timeout) || $timeout >= 0))
 			throw new \Exception("Timeout must be 0 or bigger, or null");
+		
+		if (is_null($timeout))
+			$timeout = self::BIG_FLOAT;
 	}
 	
 	private function validateLength($length): void
@@ -239,34 +248,21 @@ class Client implements IClient
 		$this->validateTimeout($timeout);
 		$this->validateLength($maxLength);
 		
-		if (is_null($timeout))
+		$timeoutTime = microtime(true) + $timeout;
+		$isRunning = true;
+		
+		while ($isRunning)
 		{
-			while (strlen($this->buffer) < $maxLength)
-			{
-				$this->readIntoInternalBuffer($maxLength);
-			}
-		}
-		else
-		{
-			$timeoutTime = microtime(true) + $timeout;
-			$isRunning = true;
+			$this->readIntoInternalBuffer($maxLength);
 			
-			while ($isRunning)
-			{
-				$this->readIntoInternalBuffer($maxLength);
-				
-				if (microtime(true) >= $timeoutTime)
-					break;
-				
-				if (strlen($this->buffer) >= $maxLength)
-					break;
-			}
+			if (microtime(true) >= $timeoutTime)
+				break;
+			
+			if (strlen($this->buffer) >= $maxLength)
+				break;
 		}
 		
-		if (!$this->buffer)
-			$result = null;
-		else
-			$result = $this->getFromBuffer($maxLength);
+		$result = $this->getFromBuffer($maxLength);
 		
 		$this->plugin->read($this, $result);
 		
@@ -279,31 +275,21 @@ class Client implements IClient
 		$this->validateTimeout($timeout);
 		$this->validateLength($length);
 		
-		if (is_null($timeout))
+		$timeoutTime = microtime(true) + $timeout;
+		$isRunning = true;
+		
+		while ($isRunning)
 		{
-			while (strlen($this->buffer) < $length)
-			{
-				$this->readIntoInternalBuffer($length);
-			}
-		}
-		else
-		{
-			$timeoutTime = microtime(true) + $timeout;
-			$isRunning = true;
+			$this->readIntoInternalBuffer($length);
 			
-			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $length)
-			{
-				$this->readIntoInternalBuffer($length);
-				
-				if (microtime(true) >= $timeoutTime)
-					break;
-				
-				if (strlen($this->buffer) >= $length)
-					break;
-			}
+			if (microtime(true) >= $timeoutTime)
+				break;
+			
+			if (strlen($this->buffer) >= $length)
+				break;
 		}
 		
-		if (!$this->buffer || strlen($this->buffer) < $length)
+		if (strlen($this->buffer) < $length)
 			$result = null;
 		else
 			$result = $this->getFromBuffer($length);
@@ -334,38 +320,12 @@ class Client implements IClient
 		$this->validateTimeout($timeout);
 		$this->validateLength($maxLength);
 		
-		if (!is_array($stop))
-			$stop = [$stop];
+		$stop = (array)$stop;
 		
 		$result = null;
 		$stopPosition = null;
 		
-		if (is_null($timeout))
-		{
-			$isRunning = true;
-			
-			while ($isRunning)
-			{
-				$this->readIntoInternalBuffer($maxLength ?? 1024);
-				
-				foreach ($stop as $stopString)
-				{
-					$position = strpos($this->buffer, $stopString);
-					
-					if ($position !== false)
-					{
-						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
-					}
-				}
-				
-				if ($maxLength && strlen($this->buffer) >= $maxLength)
-					break;
-				
-				if (!is_null($stopPosition))
-					break;
-			}
-		}
-		else if (is_null($maxLength))
+		if (is_null($maxLength))
 		{
 			$breakWhenEmpty = false;
 			
@@ -433,14 +393,16 @@ class Client implements IClient
 			}
 		}
 		
-		if (!$this->buffer)
+		// $maxLength null and $stopPosition null
+		if (!$maxLength && !$stopPosition)
 			$result = null;
-		else if (!$maxLength && !$stopPosition)
-			$result = null;
+		// $maxLength and $stopPosition not null
 		else if ($stopPosition && $maxLength && $stopPosition > $maxLength)
 			$result = $this->getFromBuffer($maxLength);
+		// $stopPosition not null and $maxLength null
 		else if ($stopPosition)
 			$result = $this->getFromBuffer($stopPosition + 1);
+		// $maxLength not null and $stopPosition null
 		else 
 			$result = $this->getFromBuffer($maxLength);
 		
