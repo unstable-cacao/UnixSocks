@@ -268,25 +268,35 @@ class Client implements IClient
 		return $result;
 	}
 	
-	public function readBuffer(int $length = 1024, ?float $timeout = null): ?string
+	public function readExactly(int $length = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();
+		$this->validateTimeout($timeout);
+		$this->validateLength($length);
 		
-		if (strlen($this->buffer) >= $length)
+		if (is_null($timeout))
 		{
-			$result = $this->getFromBuffer($length);
+			while (strlen($this->buffer) < $length)
+			{
+				$this->readIntoInternalBuffer($length);
+			}
 		}
 		else
 		{
-			if (is_null($timeout))
+			$timeoutTime = (float)time() + $timeout;
+			$isRunning = true;
+			$this->readIntoInternalBuffer($length);
+			
+			while ($isRunning && microtime(true) <= $timeoutTime && strlen($this->buffer) < $length)
 			{
-				
-			}
-			else
-			{
-				
+				$this->readIntoInternalBuffer($length);
 			}
 		}
+		
+		if (!$this->buffer || strlen($this->buffer) < $length)
+			$result = null;
+		else
+			$result = $this->getFromBuffer($length);
 		
 		$this->plugin->read($this, $result);
 		

@@ -24,7 +24,7 @@ interface IClient
 	public function hasInput(): bool;
 	
 	public function read(int $maxLength = 1024, ?float $timeout = null): ?string;
-	public function readBuffer(int $length = 1024, ?float $timeout = null): ?string;
+	public function readExactly(int $length = 1024, ?float $timeout = null): ?string;
 	public function readLine(?float $timeout = null, ?int $maxLength = null): ?string;
 	
 	/**
