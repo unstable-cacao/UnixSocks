@@ -250,11 +250,16 @@ class Client implements IClient
 		{
 			$timeoutTime = microtime(true) + $timeout;
 			$isRunning = true;
-			$this->readIntoInternalBuffer($maxLength);
 			
-			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $maxLength)
+			while ($isRunning)
 			{
 				$this->readIntoInternalBuffer($maxLength);
+				
+				if (microtime(true) >= $timeoutTime)
+					break;
+				
+				if (strlen($this->buffer) >= $maxLength)
+					break;
 			}
 		}
 		
@@ -285,11 +290,16 @@ class Client implements IClient
 		{
 			$timeoutTime = microtime(true) + $timeout;
 			$isRunning = true;
-			$this->readIntoInternalBuffer($length);
 			
 			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $length)
 			{
 				$this->readIntoInternalBuffer($length);
+				
+				if (microtime(true) >= $timeoutTime)
+					break;
+				
+				if (strlen($this->buffer) >= $length)
+					break;
 			}
 		}
 		
@@ -332,9 +342,11 @@ class Client implements IClient
 		
 		if (is_null($timeout))
 		{
-			while (strlen($this->buffer) < $maxLength && is_null($stopPosition))
+			$isRunning = true;
+			
+			while ($isRunning)
 			{
-				$this->readIntoInternalBuffer($maxLength);
+				$this->readIntoInternalBuffer($maxLength ?? 1024);
 				
 				foreach ($stop as $stopString)
 				{
@@ -345,15 +357,58 @@ class Client implements IClient
 						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
 					}
 				}
+				
+				if ($maxLength && strlen($this->buffer) >= $maxLength)
+					break;
+				
+				if (!is_null($stopPosition))
+					break;
+			}
+		}
+		else if (is_null($maxLength))
+		{
+			$breakWhenEmpty = false;
+			
+			if ($timeout == 0)
+			{
+				$timeout = 5000000;
+				$breakWhenEmpty = true;
+			}
+			
+			$timeoutTime = (float)time() + $timeout;
+			$isRunning = true;
+			
+			while ($isRunning)
+			{
+				$readFromSocket = socket_read($this->ioSocket, 1024);
+				$this->buffer .= $readFromSocket;
+					
+				foreach ($stop as $stopString)
+				{
+					$position = strpos($this->buffer, $stopString);
+					
+					if ($position !== false)
+					{
+						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
+					}
+				}
+				
+				if (!$readFromSocket && $breakWhenEmpty)
+					break;
+				
+				if (microtime(true) >= $timeoutTime)
+					break;
+				
+				if (!is_null($stopPosition))
+					break;
 			}
 		}
 		else
 		{
 			$timeoutTime = (float)time() + $timeout;
 			$isRunning = true;
-			$this->readIntoInternalBuffer($maxLength);
 			
-			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $maxLength && is_null($stopPosition))
+			while ($isRunning)
 			{
 				$this->readIntoInternalBuffer($maxLength);
 				
@@ -366,6 +421,15 @@ class Client implements IClient
 						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
 					}
 				}
+				
+				if (microtime(true) >= $timeoutTime)
+					break;
+				
+				if (strlen($this->buffer) >= $maxLength)
+					break;
+				
+				if (!is_null($stopPosition))
+					break;
 			}
 		}
 		
