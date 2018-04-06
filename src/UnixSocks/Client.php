@@ -236,49 +236,32 @@ class Client implements IClient
 	public function read(int $maxLength = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();
+		$this->validateTimeout($timeout);
+		$this->validateLength($maxLength);
 		
-		if ($this->buffer)
+		if (is_null($timeout))
 		{
-			$result = $this->getFromBuffer($maxLength);
-		} 
-		else 
-		{
-			if (is_null($timeout))
+			while (strlen($this->buffer) < $maxLength)
 			{
-				socket_set_blocking($this->ioSocket, true);
-				$result = socket_read($this->ioSocket, $maxLength);
-				
-				if (strlen($result) > $maxLength)
-				{
-					$this->buffer = substr($result, $maxLength);
-					$result = substr($result, 0, $maxLength);
-				}
-			}
-			else
-			{
-				$timeoutTime = (float)time() + $timeout;
-				$isRunning = true;
-				$result = '';
-				
-				socket_set_blocking($this->ioSocket, false);
-				
-				while ($isRunning && microtime(true) <= $timeoutTime)
-				{
-					$result = socket_read($this->ioSocket, $maxLength);
-					
-					if ($result)
-					{
-						$isRunning = false;
-						
-						if (strlen($result) > $maxLength)
-						{
-							$this->buffer = substr($result, $maxLength);
-							$result = substr($result, 0, $maxLength);
-						}
-					}
-				}
+				$this->readIntoInternalBuffer($maxLength);
 			}
 		}
+		else
+		{
+			$timeoutTime = (float)time() + $timeout;
+			$isRunning = true;
+			$this->readIntoInternalBuffer($maxLength);
+			
+			while ($isRunning && microtime(true) <= $timeoutTime && strlen($this->buffer) < $maxLength)
+			{
+				$this->readIntoInternalBuffer($maxLength);
+			}
+		}
+		
+		if (!$this->buffer)
+			$result = null;
+		else
+			$result = $this->getFromBuffer($maxLength);
 		
 		$this->plugin->read($this, $result);
 		
