@@ -76,14 +76,14 @@ class Client implements IClient
 	{
 		if (!$this->file)
 		{
-			throw new \Exception("File not set");
+			throw new Exceptions\FatalUnixSocksException("File not set");
 		}
 	}
 	
 	private function validateTimeout(&$timeout): void
 	{
 		if (!(is_null($timeout) || $timeout >= 0))
-			throw new \Exception("Timeout must be 0 or bigger, or null");
+			throw new Exceptions\InvalidParameterException("Timeout must be 0 or bigger, or null");
 		
 		if (is_null($timeout))
 			$timeout = self::BIG_FLOAT;
@@ -92,7 +92,7 @@ class Client implements IClient
 	private function validateLength($length): void
 	{
 		if (!(is_null($length) || $length > 0))
-			throw new \Exception("Length must be null or bigger than 0");
+			throw new Exceptions\InvalidParameterException("Length must be null or bigger than 0");
 	}
 	
 	
@@ -143,12 +143,12 @@ class Client implements IClient
 		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn) 
-			throw new \Exception("Failed to create socket");
+			throw new Exceptions\FatalUnixSocksException("Failed to create socket");
 		
 		$this->validateFile();
 		
 		if (!socket_connect($conn, $this->file))
-			throw new \Exception("Failed to connect to socket");
+			throw new Exceptions\FatalUnixSocksException("Failed to connect to socket");
 		
 		$this->ioSocket = $conn;
 		$this->allSockets[] = $conn;
@@ -315,7 +315,7 @@ class Client implements IClient
 		$this->validateOpen();
 		
 		if (!$stop)
-			throw new \Exception("Stop parameter required");
+			throw new Exceptions\InvalidParameterException("Stop parameter required");
 		
 		$this->validateTimeout($timeout);
 		$this->validateLength($maxLength);
