@@ -248,11 +248,11 @@ class Client implements IClient
 		}
 		else
 		{
-			$timeoutTime = (float)time() + $timeout;
+			$timeoutTime = microtime(true) + $timeout;
 			$isRunning = true;
 			$this->readIntoInternalBuffer($maxLength);
 			
-			while ($isRunning && microtime(true) <= $timeoutTime && strlen($this->buffer) < $maxLength)
+			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $maxLength)
 			{
 				$this->readIntoInternalBuffer($maxLength);
 			}
@@ -283,11 +283,11 @@ class Client implements IClient
 		}
 		else
 		{
-			$timeoutTime = (float)time() + $timeout;
+			$timeoutTime = microtime(true) + $timeout;
 			$isRunning = true;
 			$this->readIntoInternalBuffer($length);
 			
-			while ($isRunning && microtime(true) <= $timeoutTime && strlen($this->buffer) < $length)
+			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $length)
 			{
 				$this->readIntoInternalBuffer($length);
 			}
@@ -328,105 +328,13 @@ class Client implements IClient
 			$stop = [$stop];
 		
 		$result = null;
+		$stopPosition = null;
 		
 		if (is_null($timeout))
 		{
-			$isRunning = true;
-			
-			while ($isRunning)
-			{
-				$this->readIntoInternalBuffer();
-				
-				if (is_null($maxLength))
-				{
-					$firstStop = false;
-					
-					foreach ($stop as $stopString)
-					{
-						$position = strpos($this->buffer, $stopString);
-						
-						if ($position !== false)
-						{
-							$firstStop = $firstStop === false ? $position : min($firstStop, $position);
-						}
-					}
-					
-					if ($firstStop !== false)
-					{
-						$result = $this->getFromBuffer($firstStop + 1);
-						$isRunning = false;
-					}
-				}
-				else
-				{
-					if (strlen($this->buffer) >= $maxLength)
-						$isRunning = false;
-					
-					$firstStop = false;
-					
-					foreach ($stop as $stopString)
-					{
-						$position = strpos($this->buffer, $stopString);
-						
-						if ($position !== false)
-						{
-							$firstStop = $firstStop === false ? $position : min($firstStop, $position);
-						}
-					}
-					
-					if ($firstStop !== false || !$isRunning)
-					{
-						$isRunning = false;
-						
-						if ($firstStop + 1 > $maxLength)
-							$result = $this->getFromBuffer($maxLength);
-						else
-							$result = $this->getFromBuffer($firstStop + 1);
-					}
-				}
-			}
-		}
-		else if ($timeout == 0)
-		{
-			if (is_null($maxLength))
-			{
-				$isRunning = true;
-				$readFromSocket = socket_read($this->ioSocket, 1024);
-				
-				while ($isRunning)
-				{
-					if ($readFromSocket)
-					{
-						$this->buffer .= $readFromSocket;
-						$readFromSocket = socket_read($this->ioSocket, 1024);
-					}
-					else
-					{
-						$isRunning = false;
-					}
-				}
-				
-				$firstStop = false;
-				
-				foreach ($stop as $stopString)
-				{
-					$position = strpos($this->buffer, $stopString);
-					
-					if ($position !== false)
-					{
-						$firstStop = $firstStop === false ? $position : min($firstStop, $position);
-					}
-				}
-				
-				if ($firstStop !== false)
-				{
-					$result = $this->getFromBuffer($firstStop + 1);
-				}
-			}
-			else 
+			while (strlen($this->buffer) < $maxLength && is_null($stopPosition))
 			{
 				$this->readIntoInternalBuffer($maxLength);
-				$firstStop = false;
 				
 				foreach ($stop as $stopString)
 				{
@@ -434,16 +342,8 @@ class Client implements IClient
 					
 					if ($position !== false)
 					{
-						$firstStop = $firstStop === false ? $position : min($firstStop, $position);
+						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
 					}
-				}
-				
-				if ($firstStop !== false)
-				{
-					if ($firstStop + 1 > $maxLength)
-						$result = $this->getFromBuffer($maxLength);
-					else
-						$result = $this->getFromBuffer($firstStop + 1);
 				}
 			}
 		}
@@ -451,25 +351,34 @@ class Client implements IClient
 		{
 			$timeoutTime = (float)time() + $timeout;
 			$isRunning = true;
+			$this->readIntoInternalBuffer($maxLength);
 			
-			socket_set_blocking($this->ioSocket, false);
-			
-			while ($isRunning && microtime(true) <= $timeoutTime)
+			while ($isRunning && microtime(true) < $timeoutTime && strlen($this->buffer) < $maxLength && is_null($stopPosition))
 			{
-				$result = socket_read($this->ioSocket, $maxLength);
+				$this->readIntoInternalBuffer($maxLength);
 				
-				if ($result)
+				foreach ($stop as $stopString)
 				{
-					$isRunning = false;
+					$position = strpos($this->buffer, $stopString);
 					
-					if (strlen($result) > $maxLength)
+					if ($position !== false)
 					{
-						$this->buffer = substr($result, $maxLength);
-						$result = substr($result, 0, $maxLength);
+						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
 					}
 				}
 			}
 		}
+		
+		if (!$this->buffer)
+			$result = null;
+		else if (!$maxLength && !$stopPosition)
+			$result = null;
+		else if ($stopPosition && $maxLength && $stopPosition > $maxLength)
+			$result = $this->getFromBuffer($maxLength);
+		else if ($stopPosition)
+			$result = $this->getFromBuffer($stopPosition + 1);
+		else 
+			$result = $this->getFromBuffer($maxLength);
 		
 		$this->plugin->read($this, $result);
 		
