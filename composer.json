@@ -1,22 +1,38 @@
 {
-    "name": "unstable-cacao/unix-socks",
-    "authors": [
-        {
-            "name": "Alexey Puchkov",
-            "email": "alexey.pkv@gmail.com"
-        },
-        {
-            "name": "Marina Puchkov",
-            "email": "marinashers@gmail.com"
-        }
-    ],
-    "require":
-    {
+	"name": "unstable-cacao/unix-socks",
+	"authors": [
+		{
+			"name": "Alexey Puchkov",
+			"email": "alexey.pkv@gmail.com"
+		},
+		{
+			"name": "Marina Puchkov",
+			"email": "marinashers@gmail.com"
+		}
+	],
+	"require":
+	{
 		"php": ">=7.1"
-    },
-    "autoload": {
-		"psr-4": {
+	},
+	"autoload": 
+	{
+		"psr-4":
+		{
 			"UnixSocks\\": "src\\UnixSocks\\"
 		}
+	},
+	"require-dev":
+	{
+		"phpunit/phpunit": "^6.2",
+		"satooshi/php-coveralls": "^1.0"
+	},
+	"scripts":
+	{
+		"test": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests",
+		"unit-test": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests --group unit",
+		"integration-test": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests --group integration",
+		"test-cover": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests --coverage-html ./build/cover",
+		"unit-test-cover": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests --coverage-html ./build/cover --group unit",
+		"integration-test-cover": "./vendor/phpunit/phpunit/phpunit --dont-report-useless-tests --coverage-html ./build/cover --group integration"
 	}
 }
