@@ -148,7 +148,7 @@ class Client implements IClient
 		$this->validateFile();
 		
 		if (!socket_connect($conn, $this->file))
-			throw new Exceptions\FatalUnixSocksException("Failed to connect to socket");
+			throw new Exceptions\FatalUnixSocksException("Failed to connect to socket: " . socket_strerror(socket_last_error($conn)));
 		
 		$this->ioSocket = $conn;
 		$this->allSockets[] = $conn;
@@ -169,8 +169,8 @@ class Client implements IClient
 		
 		if (is_null($timeout))
 		{
-			socket_set_blocking($conn, true);
 			$this->ioSocket = socket_accept($conn);
+			socket_set_blocking($conn, true);
 			$this->allSockets = [$this->ioSocket, $conn];
 			
 			return $this->isOpen();

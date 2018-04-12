@@ -12,9 +12,12 @@ class ClientTest extends TestCase
 	{
 		ScriptExecutor::run(
 			[
+				['accept'],
 				[ 'read' ]
 			],
 			[
+				['sleep', 1],
+				['connect'],
 				[ 'write', 'abc' ]
 			]);
 	}

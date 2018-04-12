@@ -12,6 +12,13 @@ class Executor
 	/** @var Client */
 	private $client;
 	
+	
+	public function __construct()
+	{
+		$this->client = new Client(__DIR__ . '/tmp/socket.io');
+	}
+	
+	
 	public function executeOne(string $command, ...$args): void
 	{
 		switch ($command)
