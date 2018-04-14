@@ -26,7 +26,7 @@ class Client implements IClient
 	private $allSockets = [];
 	
 	
-	private function readIntoInternalBuffer(int $maxLength = 1024): void
+	private function readIntoInternalBuffer(int $maxLength = 1024): bool
 	{
 		$this->validateOpen();
 		$readData = socket_read($this->ioSocket, $maxLength);
@@ -34,6 +34,11 @@ class Client implements IClient
 		if ($readData)
 		{
 			$this->buffer .= $readData;
+			return true;
+		}
+		else
+		{
+			return false;
 		}
 	}
 	
@@ -154,20 +159,6 @@ class Client implements IClient
 		$this->allSockets[] = $conn;
 	}
 	
-	public function tryAccept(?float $timeout = null): bool
-	{
-		try
-		{
-			$this->accept($timeout);
-			return false;
-		}
-		catch (SocketException $e)
-		{
-			return false;
-		}
-	}
-	
-	
 	public function accept(?float $timeout = null): bool
 	{
 		$this->validateClosed();
@@ -257,7 +248,14 @@ class Client implements IClient
 		
 		return $this->buffer;
 	}
-	
+
+	/**
+	 * Read any input with maximum length of $maxLength. If a shorter string is ready, it will be returned.
+	 * If $timeout is reached, null is returned.
+	 * @param int $maxLength
+	 * @param float|null $timeout
+	 * @return null|string
+	 */
 	public function read(int $maxLength = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();
@@ -269,7 +267,8 @@ class Client implements IClient
 		
 		while ($isRunning)
 		{
-			$this->readIntoInternalBuffer($maxLength);
+			if ($this->readIntoInternalBuffer($maxLength))
+				break;
 			
 			if (microtime(true) >= $timeoutTime)
 				break;
@@ -284,7 +283,13 @@ class Client implements IClient
 		
 		return $result;
 	}
-	
+
+	/**
+	 * Wait until exactly the sissified number of characters were read. If timeout is reached, null is retunred.
+	 * @param int $length
+	 * @param float|null $timeout
+	 * @return null|string
+	 */
 	public function readExactly(int $length = 1024, ?float $timeout = null): ?string
 	{
 		$this->validateOpen();

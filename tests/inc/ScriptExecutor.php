@@ -4,7 +4,7 @@ namespace inc;
 
 class ScriptExecutor
 {
-	public static function run(array $commandsA, array $commandsB): void
+	public static function run(array $commandsA, array $commandsB, bool $debug = false): void
 	{
 		$args1 = json_encode(json_encode($commandsA));
 		$args2 = json_encode(json_encode($commandsB));
@@ -13,8 +13,14 @@ class ScriptExecutor
 		$command1 = "php $path $args1";
 		$command2 = "php $path $args2";
 		
-		var_dump($command1);
-		var_dump($command2); die;
+		if ($debug)
+		{
+			echo "Commands:" . PHP_EOL;
+			echo "***********************************" . PHP_EOL;
+			echo $command1 . PHP_EOL;
+			echo $command2 . PHP_EOL;
+			echo "***********************************" . PHP_EOL;
+		}
 		
 		exec("$command1 & $command2", $output, $result);
 		

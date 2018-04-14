@@ -28,7 +28,8 @@ class ClientTest extends TestCase
 				['sleep', 1],
 				['connect'],
 				['write', 'abc']
-			]);
+			],
+			true);
 	}
 	
 	
