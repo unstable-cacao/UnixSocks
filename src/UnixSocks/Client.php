@@ -282,7 +282,8 @@ class Client implements IClient
 		
 		$result = $this->getFromBuffer($maxLength);
 		
-		$this->plugin->read($this, $result);
+		if ($this->plugin)
+			$this->plugin->read($this, $result);
 		
 		return $result;
 	}
@@ -318,7 +319,8 @@ class Client implements IClient
 		else
 			$result = $this->getFromBuffer($length);
 		
-		$this->plugin->read($this, $result);
+		if ($this->plugin)
+			$this->plugin->read($this, $result);
 		
 		return $result;
 	}
@@ -430,7 +432,8 @@ class Client implements IClient
 		else 
 			$result = $this->getFromBuffer($maxLength);
 		
-		$this->plugin->read($this, $result);
+		if ($this->plugin)
+			$this->plugin->read($this, $result);
 		
 		return $result;
 	}
@@ -440,7 +443,9 @@ class Client implements IClient
 	{
 		$this->validateOpen();
 		socket_write($this->ioSocket, $input);
-		$this->plugin->write($this, $input);
+		
+		if ($this->plugin)
+			$this->plugin->write($this, $input);
 	}
 	
 	public function writeLine(string $input): void
