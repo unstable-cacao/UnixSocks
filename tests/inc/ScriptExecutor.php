@@ -13,6 +13,9 @@ class ScriptExecutor
 		$command1 = "php $path $args1";
 		$command2 = "php $path $args2";
 		
+		var_dump($command1);
+		var_dump($command2); die;
+		
 		exec("$command1 & $command2", $output, $result);
 		
 		if ($result !== 0 || $output)

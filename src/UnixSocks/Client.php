@@ -154,6 +154,20 @@ class Client implements IClient
 		$this->allSockets[] = $conn;
 	}
 	
+	public function tryAccept(?float $timeout = null): bool
+	{
+		try
+		{
+			$this->accept($timeout);
+			return false;
+		}
+		catch (SocketException $e)
+		{
+			return false;
+		}
+	}
+	
+	
 	public function accept(?float $timeout = null): bool
 	{
 		$this->validateClosed();
@@ -167,10 +181,12 @@ class Client implements IClient
 		if (!socket_bind($conn, $this->file))
 			return false;
 		
+		if (!socket_listen($conn))
+			return false;
+		
 		if (is_null($timeout))
-		{
+		{			
 			$this->ioSocket = socket_accept($conn);
-			socket_set_blocking($conn, true);
 			$this->allSockets = [$this->ioSocket, $conn];
 			
 			return $this->isOpen();
@@ -178,7 +194,7 @@ class Client implements IClient
 		else
 		{
 			$timeoutTime = (float)time() + $timeout;
-			socket_set_blocking($conn, false);
+			socket_set_nonblock($conn);
 			
 			while (microtime(true) <= $timeoutTime)
 			{
