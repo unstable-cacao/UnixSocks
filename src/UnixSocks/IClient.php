@@ -9,7 +9,8 @@ interface IClient
 	
 	public function tryConnect(): bool;
 	public function connect(): void;
-	public function accept(?float $timeout = null): bool;
+	public function accept(?float $timeout = null): void;
+	public function tryAccept(?float $timeout = null): bool;
 	public function close(): void;
 	
 	public function isOpen(): bool;

@@ -125,19 +125,14 @@ class Client implements IClient
 	
 	public function tryConnect(): bool 
 	{
-		$this->validateClosed();
-		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
-		
-		if (!$conn)
+		try
+		{
+			$this->connect();
+		}
+		catch (Exceptions\UnixSocksException $e)
+		{
 			return false;
-		
-		$this->validateFile();
-		
-		if (!socket_connect($conn, $this->file))
-			return false;
-		
-		$this->ioSocket = $conn;
-		$this->allSockets = [$conn];
+		}
 		
 		return true;
 	}
@@ -148,39 +143,37 @@ class Client implements IClient
 		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn) 
-			throw new Exceptions\FatalUnixSocksException("Failed to create socket");
+			throw new Exceptions\SocketException();
 		
 		$this->validateFile();
 		
 		if (!socket_connect($conn, $this->file))
-			throw new Exceptions\FatalUnixSocksException("Failed to connect to socket: " . socket_strerror(socket_last_error($conn)));
+			throw new Exceptions\SocketException();
 		
 		$this->ioSocket = $conn;
 		$this->allSockets[] = $conn;
 	}
 	
-	public function accept(?float $timeout = null): bool
+	public function accept(?float $timeout = null): void
 	{
 		$this->validateClosed();
 		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn)
-			return false;
+			throw new Exceptions\SocketException();
 		
 		$this->validateFile();
 		
 		if (!socket_bind($conn, $this->file))
-			return false;
+			throw new Exceptions\SocketException();
 		
 		if (!socket_listen($conn))
-			return false;
+			throw new Exceptions\SocketException();
 		
 		if (is_null($timeout))
 		{			
 			$this->ioSocket = socket_accept($conn);
 			$this->allSockets = [$this->ioSocket, $conn];
-			
-			return $this->isOpen();
 		}
 		else
 		{
@@ -195,13 +188,23 @@ class Client implements IClient
 				{
 					$this->ioSocket = $client;
 					$this->allSockets = [$client, $conn];
-					
-					return true;
 				}
 			}
 		}
+	}
+	
+	public function tryAccept(?float $timeout = null): bool
+	{
+		try
+		{
+			$this->accept($timeout);
+		}
+		catch (Exceptions\UnixSocksException $e)
+		{
+			return false;
+		}
 		
-		return false;
+		return true;
 	}
 	
 	public function close(): void
