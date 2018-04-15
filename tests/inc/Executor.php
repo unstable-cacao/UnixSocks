@@ -3,6 +3,7 @@ namespace inc;
 
 
 use UnixSocks\Client;
+use UnixSocks\StandardSocket;
 
 
 class Executor
@@ -15,7 +16,7 @@ class Executor
 	
 	public function __construct()
 	{
-		$this->client = new Client(__DIR__ . '/tmp/socket.io');
+		$this->client = new Client(new StandardSocket(), __DIR__ . '/tmp/socket.io');
 	}
 	
 	

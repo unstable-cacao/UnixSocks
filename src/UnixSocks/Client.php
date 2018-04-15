@@ -19,6 +19,9 @@ class Client implements IClient
 	/** @var string */
 	private $buffer = '';
 	
+	/** @var ISocket */
+	private $conn;
+	
 	/** @var resource|null */
 	private $ioSocket;
 	
@@ -29,7 +32,7 @@ class Client implements IClient
 	private function readIntoInternalBuffer(int $maxLength = 1024): bool
 	{
 		$this->validateOpen();
-		$readData = socket_read($this->ioSocket, $maxLength);
+		$readData = $this->conn->read($this->ioSocket, $maxLength);
 		
 		if ($readData)
 		{
@@ -101,8 +104,9 @@ class Client implements IClient
 	}
 	
 	
-	public function __construct(?string $file = null, ?IClientPlugin $plugin = null)
+	public function __construct(?ISocket $conn, ?string $file = null, ?IClientPlugin $plugin = null)
 	{
+		$this->conn = $conn ?: new StandardSocket();
 		$this->file = $file;
 		$this->plugin = $plugin;
 	}
@@ -140,14 +144,14 @@ class Client implements IClient
 	public function connect(): void
 	{
 		$this->validateClosed();
-		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
+		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn) 
 			throw new Exceptions\SocketException();
 		
 		$this->validateFile();
 		
-		if (!socket_connect($conn, $this->file))
+		if (!$this->conn->connect($conn, $this->file))
 			throw new Exceptions\SocketException();
 		
 		$this->ioSocket = $conn;
@@ -157,32 +161,32 @@ class Client implements IClient
 	public function accept(?float $timeout = null): void
 	{
 		$this->validateClosed();
-		$conn = socket_create(AF_UNIX, SOCK_STREAM, 0);
+		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
 		if (!$conn)
 			throw new Exceptions\SocketException();
 		
 		$this->validateFile();
 		
-		if (!socket_bind($conn, $this->file))
+		if (!$this->conn->bind($conn, $this->file))
 			throw new Exceptions\SocketException();
 		
-		if (!socket_listen($conn))
+		if (!$this->conn->listen($conn))
 			throw new Exceptions\SocketException();
 		
 		if (is_null($timeout))
 		{			
-			$this->ioSocket = socket_accept($conn);
+			$this->ioSocket = $this->conn->accept($conn);
 			$this->allSockets = [$this->ioSocket, $conn];
 		}
 		else
 		{
 			$timeoutTime = (float)time() + $timeout;
-			socket_set_nonblock($conn);
+			$this->conn->setNonblock($conn);
 			
 			while (microtime(true) <= $timeoutTime)
 			{
-				$client = socket_accept($conn);
+				$client = $this->conn->accept($conn);
 				
 				if ($client)
 				{
@@ -211,7 +215,7 @@ class Client implements IClient
 	{
 		foreach ($this->allSockets as $socket)
 		{
-			socket_close($socket);
+			$this->conn->close($socket);
 		}
 		
 		if ($this->file && file_exists($this->file))
@@ -274,9 +278,6 @@ class Client implements IClient
 				break;
 			
 			if (microtime(true) >= $timeoutTime)
-				break;
-			
-			if (strlen($this->buffer) >= $maxLength)
 				break;
 		}
 		
@@ -366,7 +367,7 @@ class Client implements IClient
 			
 			while ($isRunning)
 			{
-				$readFromSocket = socket_read($this->ioSocket, 1024);
+				$readFromSocket = $this->conn->read($this->ioSocket, 1024);
 				$this->buffer .= $readFromSocket;
 					
 				foreach ($stop as $stopString)
@@ -442,7 +443,7 @@ class Client implements IClient
 	public function write(string $input): void
 	{
 		$this->validateOpen();
-		socket_write($this->ioSocket, $input);
+		$this->conn->write($this->ioSocket, $input);
 		
 		if ($this->plugin)
 			$this->plugin->write($this, $input);

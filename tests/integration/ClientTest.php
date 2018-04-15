@@ -22,7 +22,7 @@ class ClientTest extends TestCase
 		ScriptExecutor::run(
 			[
 				['accept'],
-				['read']
+				['read', 1024, 3]
 			],
 			[
 				['sleep', 1],
