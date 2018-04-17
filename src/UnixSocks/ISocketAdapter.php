@@ -38,7 +38,7 @@ interface ISocketAdapter
 	/**
 	 * @param resource $socket
 	 */
-	public function setNonblock($socket): void;
+	public function setNonBlocking($socket): void;
 	
 	/**
 	 * @param resource $socket
@@ -50,7 +50,7 @@ interface ISocketAdapter
 	 * @param int $length
 	 * @return string|null
 	 */
-	public function read($socket, $length): ?string;
+	public function read($socket, int $length): ?string;
 	
 	/**
 	 * @param resource $socket
