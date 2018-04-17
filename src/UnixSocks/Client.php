@@ -19,7 +19,7 @@ class Client implements IClient
 	/** @var string */
 	private $buffer = '';
 	
-	/** @var ISocket */
+	/** @var ISocketAdapter */
 	private $conn;
 	
 	/** @var resource|null */
@@ -31,6 +31,12 @@ class Client implements IClient
 	
 	private function readIntoInternalBuffer(int $maxLength = 1024): bool
 	{
+		static $count = 0;
+		$count++;
+		
+		if ($count > 100)
+			die;
+		
 		$this->validateOpen();
 		$readData = $this->conn->read($this->ioSocket, $maxLength);
 		
@@ -104,9 +110,9 @@ class Client implements IClient
 	}
 	
 	
-	public function __construct(?ISocket $conn, ?string $file = null, ?IClientPlugin $plugin = null)
+	public function __construct(?ISocketAdapter $conn, ?string $file = null, ?IClientPlugin $plugin = null)
 	{
-		$this->conn = $conn ?: new StandardSocket();
+		$this->conn = $conn ?: new StandardSocketAdapter();
 		$this->file = $file;
 		$this->plugin = $plugin;
 	}
@@ -146,13 +152,8 @@ class Client implements IClient
 		$this->validateClosed();
 		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
-		if (!$conn) 
-			throw new Exceptions\SocketException();
-		
 		$this->validateFile();
-		
-		if (!$this->conn->connect($conn, $this->file))
-			throw new Exceptions\SocketException();
+		$this->conn->connect($conn, $this->file);
 		
 		$this->ioSocket = $conn;
 		$this->allSockets[] = $conn;
@@ -163,16 +164,10 @@ class Client implements IClient
 		$this->validateClosed();
 		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
-		if (!$conn)
-			throw new Exceptions\SocketException();
-		
 		$this->validateFile();
 		
-		if (!$this->conn->bind($conn, $this->file))
-			throw new Exceptions\SocketException();
-		
-		if (!$this->conn->listen($conn))
-			throw new Exceptions\SocketException();
+		$this->conn->bind($conn, $this->file);
+		$this->conn->listen($conn);
 		
 		if (is_null($timeout))
 		{			

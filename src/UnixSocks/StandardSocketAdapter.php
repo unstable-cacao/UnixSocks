@@ -2,7 +2,7 @@
 namespace UnixSocks;
 
 
-interface ISocket
+class StandardSocketAdapter implements ISocketAdapter
 {
 	/**
 	 * Create a socket (endpoint for communication)
@@ -11,16 +11,21 @@ interface ISocket
 	 * @param int $protocol
 	 * @return resource Returns a socket resource on success, or <b>FALSE</b> on error
 	 */
-	public function create($domain, $type, $protocol);
+	public function create($domain, $type, $protocol)
+	{
+		return socket_create($domain, $type, $protocol);
+	}
 	
 	/**
 	 * Initiates a connection on a socket
 	 * @param resource $socket
 	 * @param string $address
 	 * @param int $port [optional]
-	 * @return bool <b>TRUE</b> on success or <b>FALSE</b> on failure
 	 */
-	public function connect($socket, $address, $port = 0);
+	public function connect($socket, $address): void
+	{
+		socket_connect($socket, $address);
+	}
 	
 	/**
 	 * Binds a name to a socket
@@ -29,7 +34,10 @@ interface ISocket
 	 * @param int $port [optional]
 	 * @return bool <b>TRUE</b> on success or <b>FALSE</b> on failure
 	 */
-	public function bind($socket, $address, $port = 0);
+	public function bind($socket, $address): void
+	{
+		socket_bind($socket, $address);
+	}
 	
 	/**
 	 * Listens for a connection on a socket
@@ -37,28 +45,34 @@ interface ISocket
 	 * @param int $backlog [optional]
 	 * @return bool <b>TRUE</b> on success or <b>FALSE</b> on failure
 	 */
-	public function listen($socket, $backlog = 0);
+	public function listen($socket): void
+	{
+		socket_listen($socket);
+	}
 	
 	/**
 	 * Accepts a connection on a socket
 	 * @param resource $socket
 	 * @return resource a new socket resource on success, or <b>FALSE</b> on error
 	 */
-	public function accept($socket);
+	public function accept($socket)
+	{
+		return socket_accept($socket);
+	}
 	
-	/**
-	 * Sets nonblocking mode for file descriptor fd
-	 * @param resource $socket
-	 * @return bool <b>TRUE</b> on success or <b>FALSE</b> on failure
-	 */
-	public function setNonblock($socket);
+	public function setNonblock($socket): void
+	{
+		socket_set_nonblock($socket);
+	}
 	
 	/**
 	 * Closes a socket resource
 	 * @param resource $socket
-	 * @return void No value is returned
 	 */
-	public function close($socket);
+	public function close($socket): void
+	{
+		socket_close($socket);
+	}
 	
 	/**
 	 * Reads a maximum of length bytes from a socket
@@ -69,7 +83,14 @@ interface ISocket
 	 * or <b>FALSE</b> on error (including if the remote host has closed the
 	 * connection)
 	 */
-	public function read($socket, $length, $type = PHP_BINARY_READ);
+	public function read($socket, $length): ?string
+	{
+		$result = socket_read($socket, $length, PHP_BINARY_READ);
+		
+		var_dump($result, socket_last_error($socket));
+		
+		return $result;
+	}
 	
 	/**
 	 * Write to a socket
@@ -78,5 +99,8 @@ interface ISocket
 	 * @param int $length [optional]
 	 * @return int the number of bytes successfully written to the socket or <b>FALSE</b> on failure
 	 */
-	public function write($socket, $buffer, $length = 0);
+	public function write($socket, $buffer): void
+	{
+		socket_write($socket, $buffer);
+	}
 }
