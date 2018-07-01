@@ -333,7 +333,7 @@ class Client implements IClient
 	
 	public function readLine(?float $timeout = null, ?int $maxLength = null): ?string
 	{
-		return $this->readUntil(['\n', '\r'], $timeout, $maxLength);
+		return $this->readUntil(["\n", "\r"], $timeout, $maxLength);
 	}
 	
 	/**
