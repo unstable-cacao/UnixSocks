@@ -19,7 +19,7 @@ class Client implements IClient
 	/** @var string */
 	private $buffer = '';
 	
-	/** @var ISocket */
+	/** @var ISocketAdapter */
 	private $conn;
 	
 	/** @var resource|null */
@@ -29,14 +29,23 @@ class Client implements IClient
 	private $allSockets = [];
 	
 	
-	private function readIntoInternalBuffer(int $maxLength = 1024): bool
+	private function readIntoInternalBuffer(int $maxLength = 1024, ?string &$data = null): bool
 	{
 		$this->validateOpen();
-		$readData = $this->conn->read($this->ioSocket, $maxLength);
 		
-		if ($readData)
+		try
 		{
-			$this->buffer .= $readData;
+			$data = $this->conn->read($this->ioSocket, $maxLength);
+		}
+		catch (Exceptions\Comms\ConnectionLostException $e)
+		{
+			$this->close();
+			throw $e;
+		}
+		
+		if ($data)
+		{
+			$this->buffer .= $data;
 			return true;
 		}
 		else
@@ -91,7 +100,7 @@ class Client implements IClient
 	private function validateTimeout(&$timeout): void
 	{
 		if (!(is_null($timeout) || $timeout >= 0))
-			throw new Exceptions\InvalidParameterException("Timeout must be 0 or bigger, or null");
+			throw new Exceptions\FatalUnixSocksException("Timeout must be 0 or bigger, or null");
 		
 		if (is_null($timeout))
 			$timeout = self::BIG_FLOAT;
@@ -100,13 +109,13 @@ class Client implements IClient
 	private function validateLength($length): void
 	{
 		if (!(is_null($length) || $length > 0))
-			throw new Exceptions\InvalidParameterException("Length must be null or bigger than 0");
+			throw new Exceptions\FatalUnixSocksException("Length must be null or bigger than 0");
 	}
 	
 	
-	public function __construct(?ISocket $conn, ?string $file = null, ?IClientPlugin $plugin = null)
+	public function __construct(?ISocketAdapter $conn, ?string $file = null, ?IClientPlugin $plugin = null)
 	{
-		$this->conn = $conn ?: new StandardSocket();
+		$this->conn = $conn ?: new StandardSocketAdapter();
 		$this->file = $file;
 		$this->plugin = $plugin;
 	}
@@ -146,13 +155,8 @@ class Client implements IClient
 		$this->validateClosed();
 		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
-		if (!$conn) 
-			throw new Exceptions\SocketException();
-		
 		$this->validateFile();
-		
-		if (!$this->conn->connect($conn, $this->file))
-			throw new Exceptions\SocketException();
+		$this->conn->connect($conn, $this->file);
 		
 		$this->ioSocket = $conn;
 		$this->allSockets[] = $conn;
@@ -163,16 +167,10 @@ class Client implements IClient
 		$this->validateClosed();
 		$conn = $this->conn->create(AF_UNIX, SOCK_STREAM, 0);
 		
-		if (!$conn)
-			throw new Exceptions\SocketException();
-		
 		$this->validateFile();
 		
-		if (!$this->conn->bind($conn, $this->file))
-			throw new Exceptions\SocketException();
-		
-		if (!$this->conn->listen($conn))
-			throw new Exceptions\SocketException();
+		$this->conn->bind($conn, $this->file);
+		$this->conn->listen($conn);
 		
 		if (is_null($timeout))
 		{			
@@ -182,7 +180,7 @@ class Client implements IClient
 		else
 		{
 			$timeoutTime = (float)time() + $timeout;
-			$this->conn->setNonblock($conn);
+			$this->conn->setNonBlocking($conn);
 			
 			while (microtime(true) <= $timeoutTime)
 			{
@@ -195,6 +193,9 @@ class Client implements IClient
 				}
 			}
 		}
+		
+		if ($this->ioSocket)
+			$this->conn->setNonBlocking($this->ioSocket);
 	}
 	
 	public function tryAccept(?float $timeout = null): bool
@@ -279,6 +280,8 @@ class Client implements IClient
 			
 			if (microtime(true) >= $timeoutTime)
 				break;
+			
+			usleep(10000);
 		}
 		
 		$result = $this->getFromBuffer($maxLength);
@@ -313,6 +316,8 @@ class Client implements IClient
 			
 			if (strlen($this->buffer) >= $length)
 				break;
+			
+			usleep(10000);
 		}
 		
 		if (strlen($this->buffer) < $length)
@@ -342,7 +347,7 @@ class Client implements IClient
 		$this->validateOpen();
 		
 		if (!$stop)
-			throw new Exceptions\InvalidParameterException("Stop parameter required");
+			throw new Exceptions\FatalUnixSocksException("Stop parameter required");
 		
 		$this->validateTimeout($timeout);
 		$this->validateLength($maxLength);
@@ -367,8 +372,7 @@ class Client implements IClient
 			
 			while ($isRunning)
 			{
-				$readFromSocket = $this->conn->read($this->ioSocket, 1024);
-				$this->buffer .= $readFromSocket;
+				$this->readIntoInternalBuffer(1024, $readFromSocket);
 					
 				foreach ($stop as $stopString)
 				{
@@ -388,6 +392,8 @@ class Client implements IClient
 				
 				if (!is_null($stopPosition))
 					break;
+				
+				usleep(10000);
 			}
 		}
 		else
@@ -417,6 +423,8 @@ class Client implements IClient
 				
 				if (!is_null($stopPosition))
 					break;
+				
+				usleep(10000);
 			}
 		}
 		
@@ -443,7 +451,15 @@ class Client implements IClient
 	public function write(string $input): void
 	{
 		$this->validateOpen();
-		$this->conn->write($this->ioSocket, $input);
+		
+		try
+		{
+			$this->conn->write($this->ioSocket, $input);
+		}
+		catch (Exceptions\Comms\ConnectionLostException $e)
+		{
+			$this->close();
+		}
 		
 		if ($this->plugin)
 			$this->plugin->write($this, $input);

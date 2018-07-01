@@ -35,6 +35,7 @@ class ClientTest extends TestCase
 			[
 				['accept'],
 				['read']
+				['read']
 			],
 			[
 				['sleep', 1],
