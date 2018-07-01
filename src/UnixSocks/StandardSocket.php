@@ -91,7 +91,19 @@ class StandardSocket implements ISocket
 	 */
 	public function read($socket, $length, $type = PHP_BINARY_READ)
 	{
-		return socket_read($socket, $length, $type);
+		$result = socket_read($socket, $length, $type);
+		
+		if (!$result)
+		{
+			$result = socket_read($socket, $length, PHP_NORMAL_READ);
+			
+			if ($result === false)
+			{
+				throw new \Exception("There was a problem reading from socket: " . socket_strerror(socket_last_error()));
+			}
+		}
+		
+		return $result;
 	}
 	
 	/**
