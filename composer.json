@@ -1,5 +1,6 @@
 {
 	"name": "unstable-cacao/unix-socks",
+	"description": "A library for unix sockets",
 	"authors": [
 		{
 			"name": "Alexey Puchkov",
