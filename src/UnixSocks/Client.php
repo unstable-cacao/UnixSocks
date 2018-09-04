@@ -380,7 +380,7 @@ class Client implements IClient
 					
 					if ($position !== false)
 					{
-						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
+						$stopPosition = is_null($stopPosition) ? $position : min($stopPosition, $position);
 					}
 				}
 				
@@ -411,7 +411,7 @@ class Client implements IClient
 					
 					if ($position !== false)
 					{
-						$stopPosition = is_null($stopPosition) ? $position : min($stopString, $position);
+						$stopPosition = is_null($stopPosition) ? $position : min($stopPosition, $position);
 					}
 				}
 				
