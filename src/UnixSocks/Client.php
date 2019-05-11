@@ -113,7 +113,7 @@ class Client implements IClient
 	}
 	
 	
-	public function __construct(?ISocketAdapter $conn, ?string $file = null, ?IClientPlugin $plugin = null)
+	public function __construct(?string $file = null, ?ISocketAdapter $conn = null, ?IClientPlugin $plugin = null)
 	{
 		$this->conn = $conn ?: new StandardSocketAdapter();
 		$this->file = $file;
