@@ -477,4 +477,15 @@ class Client implements IClient
 	{
 		$this->write($input . PHP_EOL);
 	}
+	
+	public function getConnector(): ISocketAdapter
+	{
+		return $this->conn;
+	}
+	
+	public function setNonBlocking(): void
+	{
+		$this->conn->setNonBlocking($this->ioSocket);
+	}
+	
 }

@@ -21,6 +21,10 @@ interface IClient
 	 */
 	public function getSocket();
 	
+	public function getConnector(): ISocketAdapter;
+	
+	public function setNonBlocking(): void;
+	
 	
 	public function hasInput(): bool;
 	
