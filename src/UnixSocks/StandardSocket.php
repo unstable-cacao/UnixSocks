@@ -2,7 +2,7 @@
 namespace UnixSocks;
 
 
-class StandardSocket implements ISocket
+class StandardSocket
 {
 	/**
 	 * Create a socket (endpoint for communication)

@@ -28,6 +28,8 @@ class Client implements IClient
 	/** @var array */
 	private $allSockets = [];
 	
+	private $fileWasExists = false;
+	
 	
 	private function readIntoInternalBuffer(int $maxLength = 1024, ?string &$data = null): bool
 	{
@@ -118,6 +120,11 @@ class Client implements IClient
 		$this->conn = $conn ?: new StandardSocketAdapter();
 		$this->file = $file;
 		$this->plugin = $plugin;
+		
+		if ($file)
+		{
+			$this->fileWasExists = file_exists($file);
+		}
 	}
 	
 	public function __destruct()
@@ -129,6 +136,7 @@ class Client implements IClient
 	public function setFile(string $path): void
 	{
 		$this->file = $path;
+		$this->fileWasExists = file_exists($path);
 	}
 	
 	public function getFile(): string
@@ -219,7 +227,7 @@ class Client implements IClient
 			$this->conn->close($socket);
 		}
 		
-		if ($this->file && file_exists($this->file))
+		if ($this->file && !$this->fileWasExists && file_exists($this->file))
 		{
 			unlink($this->file);
 		}
