@@ -31,6 +31,23 @@ class Client implements IClient
 	private $fileWasExists = false;
 	
 	
+	private function getStopPosition(array $stop): ?int
+	{
+		$stopPosition = null;
+		
+		foreach ($stop as $stopString)
+		{
+			$position = strpos($this->buffer, $stopString);
+			
+			if ($position !== false)
+			{
+				$stopPosition = is_null($stopPosition) ? $position : min($stopPosition, $position);
+			}
+		}
+		
+		return $stopPosition;
+	}
+	
 	private function readIntoInternalBuffer(int $maxLength = 1024, ?string &$data = null): bool
 	{
 		$this->validateOpen();
@@ -144,7 +161,7 @@ class Client implements IClient
 		return $this->file ?? '';
 	}
 	
-	public function tryConnect(): bool 
+	public function tryConnect(): bool
 	{
 		try
 		{
@@ -181,7 +198,7 @@ class Client implements IClient
 		$this->conn->listen($conn);
 		
 		if (is_null($timeout))
-		{			
+		{
 			$this->ioSocket = $this->conn->accept($conn);
 			$this->allSockets = [$this->ioSocket, $conn];
 		}
@@ -264,7 +281,7 @@ class Client implements IClient
 		
 		return $this->buffer;
 	}
-
+	
 	/**
 	 * Read any input with maximum length of $maxLength. If a shorter string is ready, it will be returned.
 	 * If $timeout is reached, null is returned.
@@ -299,7 +316,7 @@ class Client implements IClient
 		
 		return $result;
 	}
-
+	
 	/**
 	 * Wait until exactly the sissified number of characters were read. If timeout is reached, null is retunred.
 	 * @param int $length
@@ -365,74 +382,66 @@ class Client implements IClient
 		$result = null;
 		$stopPosition = null;
 		
-		if (is_null($maxLength))
+		if ($this->buffer)
 		{
-			$breakWhenEmpty = false;
-			
-			if ($timeout == 0)
-			{
-				$timeout = 5000000;
-				$breakWhenEmpty = true;
-			}
-			
-			$timeoutTime = (float)time() + $timeout;
-			$isRunning = true;
-			
-			while ($isRunning)
-			{
-				$this->readIntoInternalBuffer(1024, $readFromSocket);
-					
-				foreach ($stop as $stopString)
-				{
-					$position = strpos($this->buffer, $stopString);
-					
-					if ($position !== false)
-					{
-						$stopPosition = is_null($stopPosition) ? $position : min($stopPosition, $position);
-					}
-				}
-				
-				if (!$readFromSocket && $breakWhenEmpty)
-					break;
-				
-				if (microtime(true) >= $timeoutTime)
-					break;
-				
-				if (!is_null($stopPosition))
-					break;
-				
-				usleep(10000);
-			}
+			$stopPosition = $this->getStopPosition($stop);
 		}
-		else
+		
+		if (is_null($stopPosition))
 		{
-			$timeoutTime = (float)time() + $timeout;
-			$isRunning = true;
-			
-			while ($isRunning)
+			if (is_null($maxLength))
 			{
-				$this->readIntoInternalBuffer($maxLength);
+				$breakWhenEmpty = false;
 				
-				foreach ($stop as $stopString)
+				if ($timeout == 0)
 				{
-					$position = strpos($this->buffer, $stopString);
-					
-					if ($position !== false)
-					{
-						$stopPosition = is_null($stopPosition) ? $position : min($stopPosition, $position);
-					}
+					$timeout = 5000000;
+					$breakWhenEmpty = true;
 				}
 				
-				if (microtime(true) >= $timeoutTime)
-					break;
+				$timeoutTime = (float)time() + $timeout;
+				$isRunning = true;
 				
-				if (strlen($this->buffer) >= $maxLength)
-					break;
+				while ($isRunning)
+				{
+					$this->readIntoInternalBuffer(1024, $readFromSocket);
+					
+					$stopPosition = $this->getStopPosition($stop);
+					
+					if (!$readFromSocket && $breakWhenEmpty)
+						break;
+					
+					if (microtime(true) >= $timeoutTime)
+						break;
+					
+					if (!is_null($stopPosition))
+						break;
+					
+					usleep(10000);
+				}
+			}
+			else
+			{
+				$timeoutTime = (float)time() + $timeout;
+				$isRunning = true;
 				
-				if (!is_null($stopPosition))
-					break;
-				
-				usleep(10000);
+				while ($isRunning)
+				{
+					$this->readIntoInternalBuffer($maxLength);
+					
+					$stopPosition = $this->getStopPosition($stop);
+					
+					if (microtime(true) >= $timeoutTime)
+						break;
+					
+					if (strlen($this->buffer) >= $maxLength)
+						break;
+					
+					if (!is_null($stopPosition))
+						break;
+					
+					usleep(10000);
+				}
 			}
 		}
 		
@@ -446,7 +455,7 @@ class Client implements IClient
 		else if ($stopPosition)
 			$result = $this->getFromBuffer($stopPosition + 1);
 		// $maxLength not null and $stopPosition null
-		else 
+		else
 			$result = $this->getFromBuffer($maxLength);
 		
 		if ($this->plugin)
