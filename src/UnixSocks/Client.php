@@ -446,13 +446,13 @@ class Client implements IClient
 		}
 		
 		// $maxLength null and $stopPosition null
-		if (!$maxLength && !$stopPosition)
+		if (is_null($maxLength) && is_null($stopPosition))
 			$result = null;
 		// $maxLength and $stopPosition not null
-		else if ($stopPosition && $maxLength && $stopPosition > $maxLength)
+		else if (!is_null($stopPosition) && !is_null($maxLength) && $stopPosition > $maxLength)
 			$result = $this->getFromBuffer($maxLength);
 		// $stopPosition not null and $maxLength null
-		else if ($stopPosition)
+		else if (!is_null($stopPosition))
 			$result = $this->getFromBuffer($stopPosition + 1);
 		// $maxLength not null and $stopPosition null
 		else
